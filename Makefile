@@ -1,2 +1,2 @@
 exe:
-	pyinstaller Overrides/main.py -F -n XCOM2OverridesManager
+	pyinstaller main.py -F -n XCOM2OverridesManager
