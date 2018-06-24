@@ -104,16 +104,32 @@ class XComModOptionsIniHandler(BaseIniHandler):
 			self.active_mods.append(parts[1])
 		self.active_mods = list(set(self.active_mods))
 
-	def repair_active_mods(self, dry_run=False):
-		re_xmo = re.compile(r'\[Engine.XComModOptions\][\s\S]*\[', flags=re.MULTILINE)
+	def repair_active_mods(self, dry_run=False, clean_mods=False):
+		re_xmo = re.compile(r'\[Engine.XComModOptions\][\s\S^\[]]*\[', flags=re.MULTILINE)
 		config_text = self.get_text()
 		mod_lines = []
 
-		for mod in self.active_mods:
-			mod_lines.append("ActiveMods=%s" % mod)
+		if not clean_mods:
+			for mod in self.active_mods:
+				mod_lines.append("ActiveMods=%s" % mod)
 
 		mods_text = '\n'.join(mod_lines)
 		repl = "[Engine.XComModOptions]\n" + mods_text + "\n\n["
+		config_text = re.sub(re_xmo, repl, config_text)
+
+		self.write_text(config_text, dry_run=dry_run)
+
+	def repair_default_mods(self, dry_run=False, clean_mods=False):
+		re_xmo = re.compile(r'\[Engine.XComModOptions\][\s\S^\[]]*', flags=re.MULTILINE)
+		config_text = self.get_text()
+		mod_lines = []
+
+		if not clean_mods:
+			for mod in self.active_mods:
+				mod_lines.append("ActiveMods=%s" % mod)
+
+		mods_text = '\n'.join(mod_lines)
+		repl = "[Engine.XComModOptions]\n" + mods_text + "\n"
 		config_text = re.sub(re_xmo, repl, config_text)
 
 		self.write_text(config_text, dry_run=dry_run)

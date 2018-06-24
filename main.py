@@ -1,9 +1,11 @@
 import os
+from tkinter import *
+from tkinter import filedialog, messagebox
 
-from Overrides.constants import CFG_SECTION
+from Overrides.constants import CFG_SECTION, CFG_FILE_NAME
 from Overrides.ini_handler import XComEngineIniHandler, XComModOptionsIniHandler
 from Overrides.text_processor import IniTextProcessor
-from Overrides.utils import setup_logging, load_manager_config
+from Overrides.utils import setup_logging, load_manager_config, is_xcom_path_valid
 
 
 setup_logging()
@@ -15,6 +17,7 @@ DRY_RUN = manager_config.getboolean(CFG_SECTION, "DryRun")
 
 XCE_FILE_NAME = "XComEngine.ini"
 XCMO_FILE_NAME = "XComModOptions.ini"
+DMO_FILE_NAME = "DefaultModOptions.ini"
 
 XCOM2_CONF_PATH = XComEngineIniHandler.get_platform_specific_config_path(wotc=IS_WOTC)
 
@@ -58,10 +61,134 @@ class OverridesManager(object):
 	previous_overrides = []
 
 	def __init__(self):
-		self._find_overrides_in_mods_paths()
-		self._check_for_duplicate_overrides()
-		print("Found and Parsed ModClassOverrides: %s" % len(self.found_overrides))
-		self._get_existing_overrides()
+		self.window = Tk()
+		self.xcom_path = StringVar()
+		self.IsWOTC = IntVar()
+		self.CleanMods = IntVar()
+		self.DryRun = IntVar()
+
+		if IS_WOTC:
+			self.IsWOTC.set(1)
+
+		if CLEAN_ACTIVE_MODS:
+			self.CleanMods.set(1)
+
+		if DRY_RUN:
+			self.DryRun.set(1)
+
+		if is_xcom_path_valid(manager_config[CFG_SECTION]["Path"]):
+			self.xcom_path.set(manager_config[CFG_SECTION]["Path"])
+
+		if is_xcom_path_valid(manager_config[CFG_SECTION]["Path"]):
+			self.xcom_path.set(manager_config[CFG_SECTION]["Path"])
+
+		lbl_path = Label(self.window, text="XCOM2 installation path:")
+		lbl_path.pack()
+
+		path_frame = Frame(self.window)
+		path_entry = Entry(path_frame, textvariable=self.xcom_path, width=200)
+		path_entry.pack(side=LEFT)
+
+		browse_btn = Button(path_frame, text="Browse", command=self.changepath)
+		browse_btn.pack(side=RIGHT)
+
+		path_frame.pack()
+
+		option_frame = Frame(self.window)
+		chkWOTC = Checkbutton(option_frame, text="Process WOTC?", variable=self.IsWOTC)
+		chkWOTC.pack(side=LEFT)
+		chkClean = Checkbutton(option_frame, text="Clean Active Mods (If mods somehow refuse to activate/deactivate)", variable=self.CleanMods)
+		chkClean.pack(side=LEFT)
+		chkDry = Checkbutton(option_frame, text="Dry Run (Do nothing, see what would be changed in logs)", variable=self.DryRun)
+		chkDry.pack(side=LEFT)
+
+		option_frame.pack()
+
+		self.btnLaunch = Button(self.window, command=self.start_clean, text="Start")
+		self.btnLaunch.pack()
+		self.window.resizable(width=False, height=False)
+		self.window.mainloop()
+
+	def changepath(self):
+		temp_path = filedialog.askdirectory()
+
+		if temp_path == "":
+			return
+
+		if is_xcom_path_valid(temp_path):
+			self.xcom_path.set(temp_path)
+		else:
+			messagebox.showwarning(
+						"Error",
+						"Unable to find XCOM2 installation in\n(%s)" % temp_path
+					)	
+
+	def start_clean(self):
+		self.btnLaunch.config(state="disabled")
+		self.overrides_dict = {}
+		self.found_overrides = []
+		self.previous_overrides = []
+		if self.init_paths():
+			self.process_overrides_and_write_config()
+		self.btnLaunch.config(state="normal")
+
+	def init_paths(self):
+		x_path = self.xcom_path.get()
+		if is_xcom_path_valid(x_path):
+			manager_config.set(CFG_SECTION, "Path", x_path)
+			# Check is WOTC
+			IS_WOTC = self.IsWOTC.get() and is_xcom_path_valid(os.path.join(x_path, "XCom2-WarOfTheChosen"))
+			manager_config.set(CFG_SECTION, "WOTC", value='True' if IS_WOTC else 'False')
+			print("Is WOTC:", IS_WOTC)
+
+			CLEAN_ACTIVE_MODS = self.CleanMods.get() > 0
+			manager_config.set(CFG_SECTION, "CleanActiveMods", value='True' if CLEAN_ACTIVE_MODS else 'False')
+			print("CleanActiveMods:", CLEAN_ACTIVE_MODS)
+
+			DRY_RUN = self.DryRun.get() > 0
+			manager_config.set(CFG_SECTION, "DryRun", value='True' if DRY_RUN else 'False')
+			print("DryRun:", DRY_RUN)
+
+			MOD_PATHS = []
+			temp_path = os.path.abspath(os.path.join(x_path, "XComGame/Mods"))
+			if os.path.exists(temp_path):
+				Path_XCOM2Mods = temp_path
+				MOD_PATHS.append(Path_XCOM2Mods)
+				manager_config.set(CFG_SECTION, "XCOM2Mods", Path_XCOM2Mods)
+			temp_path = os.path.abspath(os.path.join(x_path, "../../workshop/content/268500"))
+			if os.path.exists(temp_path):
+				Path_SteamMods = temp_path
+				MOD_PATHS.append(Path_SteamMods)
+				manager_config.set(CFG_SECTION, "SteamMods", Path_SteamMods)
+			if IS_WOTC:
+				temp_path = os.path.abspath(os.path.join(x_path, "XCom2-WarOfTheChosen/XComGame/Mods"))
+				if os.path.exists(temp_path):
+					Path_WOTCMods = temp_path
+					MOD_PATHS.append(Path_WOTCMods)
+				manager_config.set(CFG_SECTION, "WOTCMods", Path_WOTCMods)
+			
+			fp = open(CFG_FILE_NAME, 'w')
+			manager_config.write(fp)
+			fp.close()
+
+			XCOM2_CONF_PATH = XComEngineIniHandler.get_platform_specific_config_path(wotc=IS_WOTC)
+
+			XCE_FILE_PATH = os.path.expanduser('~') + XCOM2_CONF_PATH + XCE_FILE_NAME
+			XCMO_FILE_PATH = os.path.expanduser('~') + XCOM2_CONF_PATH + XCMO_FILE_NAME
+
+			self.xce = XComEngineIniHandler(XCE_FILE_PATH)
+			self.xcmo = XComModOptionsIniHandler(XCMO_FILE_PATH)
+			self.dcmo = XComModOptionsIniHandler(os.path.join(x_path, ("XCom2-WarOfTheChosen/XComGame/Config/"
+												if IS_WOTC else "XComGame/Config/") + DMO_FILE_NAME))
+
+			self._find_overrides_in_mods_paths()
+			self._check_for_duplicate_overrides()
+			print("Found and Parsed ModClassOverrides: %s" % len(self.found_overrides))
+			self._get_existing_overrides()
+			return True
+		else:
+			messagebox.showwarning("Error", "Invalid XCOM2 installation path")
+			return False
 
 	@classmethod
 	def find_inis_in_mods_path(cls, mods_path):
@@ -174,16 +301,15 @@ class OverridesManager(object):
 		else:
 			print("==== No Changes needed - Not modifying XComEngine.ini!")
 
-		if CLEAN_ACTIVE_MODS:
-			print("== Doing cleanup of 'XComModOptions.ini' in user config folder ('%s')" % XCE_FILE_PATH)
-			self.xcmo.repair_active_mods(dry_run=DRY_RUN)
+		print("== Doing cleanup of 'XComModOptions.ini' in user config folder ('%s')" % XCE_FILE_PATH)
+		self.xcmo.repair_active_mods(dry_run=DRY_RUN, clean_mods=CLEAN_ACTIVE_MODS)
+		self.dcmo.repair_default_mods(dry_run=DRY_RUN, clean_mods=CLEAN_ACTIVE_MODS)
 
-		input(
-			"\n\nFinished! Open XCOM2OM.log in a text editor to see detailed results of what was done.\n"
-			"\nPress Enter to close this window...\n"
+		messagebox.showinfo(
+			"Finished!", "Open XCOM2OM.log in a text editor to see detailed results of what was done.\n"
 		)
 
 
 if __name__ == "__main__":
 	manager = OverridesManager()
-	manager.process_overrides_and_write_config()
+	#manager.process_overrides_and_write_config()

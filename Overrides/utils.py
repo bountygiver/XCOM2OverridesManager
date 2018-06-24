@@ -6,6 +6,7 @@ import sys
 from Overrides.constants import CFG_SECTION, CFG_FILE_NAME, LOG_FILE_NAME, MAX_LOG_SIZE
 
 CFG_DEFAULT_WOTC = 'True'
+CFG_DEFAULT_XCOM2 = 'C:\Program Files\Steam\steamapps\common\XCOM 2'
 CFG_DEFAULT_XCOM2Mods = 'C:\Program Files\Steam\steamapps\common\XCOM 2\XComGame\Mods'
 CFG_DEFAULT_WOTCMods = 'C:\Program Files\Steam\steamapps\common\XCOM 2\XCom2 - WarOfTheChosen\XComGame\Mods'
 CFG_DEFAULT_SteamMods = 'C:\Program Files\Steam\steamapps\workshop\content\\268500'
@@ -47,6 +48,7 @@ def load_manager_config():
 	manager_config = configparser.ConfigParser()
 	manager_config['DEFAULT'] = {
 		'WOTC': CFG_DEFAULT_WOTC,
+		'Path': CFG_DEFAULT_XCOM2,
 		'XCOM2Mods': CFG_DEFAULT_XCOM2Mods,
 		'WOTCMods': CFG_DEFAULT_WOTCMods,
 		'SteamMods': CFG_DEFAULT_SteamMods,
@@ -59,3 +61,6 @@ def load_manager_config():
 		print("config.ini missing! Should be in same folder as this program. Current working dir: %s" % os.getcwd())
 
 	return manager_config
+
+def is_xcom_path_valid(path):
+		return os.path.exists(os.path.join(path, "Binaries/Win64/XCOM2.exe"))
