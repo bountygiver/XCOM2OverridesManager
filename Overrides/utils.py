@@ -12,55 +12,58 @@ CFG_DEFAULT_WOTCMods = 'C:\Program Files\Steam\steamapps\common\XCOM 2\XCom2 - W
 CFG_DEFAULT_SteamMods = 'C:\Program Files\Steam\steamapps\workshop\content\\268500'
 CFG_DEFAULT_CleanActive = 'True'
 CFG_DEFAULT_DryRun = 'False'
+CFG_DEFAULT_WriteOverride = 'False'
 
 
 class SplitOut(object):
 
-	def write(self, *args, **kwargs):
-		self.out1.write(*args, **kwargs)
-		self.out2.write(*args, **kwargs)
+    def write(self, *args, **kwargs):
+        self.out1.write(*args, **kwargs)
+        self.out2.write(*args, **kwargs)
 
-	def __init__(self, out1, out2):
-		self.out1 = out1
-		self.out2 = out2
+    def __init__(self, out1, out2):
+        self.out1 = out1
+        self.out2 = out2
 
-	def flush(*args, **kwargs):
-		pass
+    def flush(*args, **kwargs):
+        pass
 
 
 def setup_logging():
-	# Don't let the log file grow. Some kind of FIFO or log-rotation would be good, but not worth the added complexity.
-	try:
-		log_size = os.path.getsize(os.path.abspath(LOG_FILE_NAME))
-	except FileNotFoundError:
-		log_size = 0
-	too_big = log_size > MAX_LOG_SIZE
-	file_mode = "a"  # Append
-	if too_big:
-		file_mode = "w"  # Blank the log file and start a new one
-	log_file = open(LOG_FILE_NAME, file_mode)
-	sys.stdout = SplitOut(log_file, sys.stdout)
-	print("-- XCOM2OverridesManager -- %s" % datetime.datetime.now())
+    # Don't let the log file grow. Some kind of FIFO or log-rotation would be good, but not worth the added complexity.
+    try:
+        log_size = os.path.getsize(os.path.abspath(LOG_FILE_NAME))
+    except FileNotFoundError:
+        log_size = 0
+    too_big = log_size > MAX_LOG_SIZE
+    file_mode = "a"  # Append
+    if too_big:
+        file_mode = "w"  # Blank the log file and start a new one
+    log_file = open(LOG_FILE_NAME, file_mode)
+    sys.stdout = SplitOut(log_file, sys.stdout)
+    print("-- XCOM2OverridesManager -- %s" % datetime.datetime.now())
 
 
 def load_manager_config():
-	# Load config for this script
-	manager_config = configparser.ConfigParser()
-	manager_config['DEFAULT'] = {
-		'WOTC': CFG_DEFAULT_WOTC,
-		'Path': CFG_DEFAULT_XCOM2,
-		'XCOM2Mods': CFG_DEFAULT_XCOM2Mods,
-		'WOTCMods': CFG_DEFAULT_WOTCMods,
-		'SteamMods': CFG_DEFAULT_SteamMods,
-		'CleanActiveMods': CFG_DEFAULT_CleanActive,
-		'DryRun': CFG_DEFAULT_DryRun,
-	}
-	manager_config[CFG_SECTION] = {}
+    # Load config for this script
+    manager_config = configparser.ConfigParser()
+    manager_config['DEFAULT'] = {
+        'WOTC': CFG_DEFAULT_WOTC,
+        'Path': CFG_DEFAULT_XCOM2,
+        'XCOM2Mods': CFG_DEFAULT_XCOM2Mods,
+        'WOTCMods': CFG_DEFAULT_WOTCMods,
+        'SteamMods': CFG_DEFAULT_SteamMods,
+        'CleanActiveMods': CFG_DEFAULT_CleanActive,
+        'DryRun': CFG_DEFAULT_DryRun,
+        'WriteOverride': CFG_DEFAULT_WriteOverride,
+    }
+    manager_config[CFG_SECTION] = {}
 
-	if not manager_config.read(CFG_FILE_NAME):
-		print("config.ini missing! Should be in same folder as this program. Current working dir: %s" % os.getcwd())
+    if not manager_config.read(CFG_FILE_NAME):
+        print("config.ini missing! Should be in same folder as this program. Current working dir: %s" % os.getcwd())
 
-	return manager_config
+    return manager_config
+
 
 def is_xcom_path_valid(path):
-		return os.path.exists(os.path.join(path, "Binaries/Win64/XCOM2.exe"))
+    return os.path.exists(os.path.join(path, "Binaries/Win64/XCOM2.exe"))
